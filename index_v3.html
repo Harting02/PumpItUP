@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Personal fat-loss dashboard with weigh-in log, projections and an AI coach.">
+<title>Fat-loss dashboard</title>
+<style>
+:root{
+  color-scheme:light dark;
+  --bg:#f4f6f9;--card:#ffffff;--ink:#14202e;--ink2:#4a5a6c;--mute:#7d8b9b;--line:#dde3ea;--grid:#e6ebf1;--soft:#eef2f7;
+  --blue:#2a78d6;--orange:#eb6834;--green:#1baf7a;--violet:#6250d6;--gold:#c98500;--goal:#7d8b9b;--red:#d03b3b;
+  --warn-bg:#fff4dc;--warn-ink:#6b4500;--ok-bg:#e3f5ec;--ok-ink:#0c5a3b;--bad-bg:#fde8e8;--bad-ink:#7a1c1c;
+  --user:#2a78d6;--user-ink:#fff;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#12171d;--card:#1a2129;--ink:#eef2f6;--ink2:#b5c0cc;--mute:#8896a5;--line:#2b3540;--grid:#252e38;--soft:#222b35;
+    --blue:#5b9df0;--orange:#f07f50;--green:#34c795;--violet:#9085e9;--gold:#e0a31f;--goal:#8896a5;--red:#e66767;
+    --warn-bg:#3a2e12;--warn-ink:#f5d98a;--ok-bg:#12332a;--ok-ink:#8fe0bd;--bad-bg:#3d1b1b;--bad-ink:#f5b5b5;
+    --user:#3d7fd6;--user-ink:#fff;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.wrap{max-width:900px;margin:0 auto;padding:0 16px}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:14px 0 8px}
+h1{font-size:20px;font-weight:650;margin:0}
+.meta{color:var(--ink2);font-size:12.5px}
+nav{display:flex;gap:4px;overflow-x:auto;padding-bottom:8px}
+nav button{border:0;background:transparent;color:var(--ink2);font:inherit;font-size:14px;padding:7px 14px;border-radius:999px;cursor:pointer;white-space:nowrap}
+nav button[aria-selected="true"]{background:var(--ink);color:var(--bg);font-weight:600}
+nav button:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+main{max-width:900px;margin:0 auto;padding:18px 16px 60px}
+h2{font-size:16px;font-weight:650;margin:0 0 12px}
+h3{font-size:14px;font-weight:650;margin:0 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:0 0 14px}
+.bar{height:16px;background:var(--grid);border-radius:8px;overflow:hidden}
+.bar>div{height:100%;background:var(--blue);border-radius:8px;transition:width .5s}
+.ends{display:flex;justify-content:space-between;font-size:13px;color:var(--ink2);margin-bottom:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
+.stat{background:var(--soft);border-radius:8px;padding:10px 12px}
+.stat small{display:block;color:var(--ink2);font-size:12px}
+.stat b{font-size:21px;font-weight:650;font-variant-numeric:tabular-nums}
+.stat em{display:block;font-style:normal;color:var(--mute);font-size:12px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--ink2);font-weight:500}
+tr:last-child td{border-bottom:0}
+td.note{text-align:left;white-space:normal;color:var(--ink2);max-width:260px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--ink2);margin:0 0 8px}
+.legend i{display:inline-block;width:20px;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.chart{position:relative;height:340px}
+.msg{border-radius:8px;padding:9px 12px;margin:0 0 8px;font-size:13.5px}
+.msg.warn{background:var(--warn-bg);color:var(--warn-ink)}
+.msg.ok{background:var(--ok-bg);color:var(--ok-ink)}
+.msg.bad{background:var(--bad-bg);color:var(--bad-ink)}
+.msg.info{background:var(--soft);color:var(--ink2)}
+form.row,.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink2);flex:1 1 120px}
+input,select,textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+textarea{resize:vertical}
+button.btn{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:8px;cursor:pointer}
+button.btn:hover{background:var(--soft)}
+button.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+button.btn.pri:hover{filter:brightness(1.08)}
+button.btn.sm{padding:4px 10px;font-size:12.5px}
+button.btn.danger{color:var(--red)}
+.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.plan{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--card)}
+.plan.rec{border:2px solid var(--blue)}
+.plan .big{font-size:28px;font-weight:650;font-variant-numeric:tabular-nums}
+.plan dl{display:grid;grid-template-columns:1fr auto;gap:4px 10px;margin:10px 0;font-size:13px}
+.plan dt{color:var(--ink2)}.plan dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--ink2);margin-bottom:6px}
+.tag.blue{background:var(--blue);color:#fff}
+.chat{display:flex;flex-direction:column;gap:10px;max-height:460px;overflow-y:auto;padding:4px 2px 8px}
+.bub{max-width:88%;padding:9px 13px;border-radius:14px;font-size:14px;word-wrap:break-word}
+.bub.u{align-self:flex-end;background:var(--user);color:var(--user-ink);border-bottom-right-radius:4px}
+.bub.a{align-self:flex-start;background:var(--soft);border-bottom-left-radius:4px}
+.bub p{margin:0 0 6px}.bub p:last-child{margin:0}
+.bub ul{margin:4px 0 6px;padding-left:18px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chip{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--card);color:var(--ink2);padding:5px 11px;border-radius:999px;cursor:pointer}
+.chip:hover{background:var(--soft);color:var(--ink)}
+details{margin-top:12px;font-size:13px}
+summary{cursor:pointer;color:var(--ink2)}
+.small{font-size:12px;color:var(--mute)}
+.empty{color:var(--mute);text-align:center;padding:18px 0;font-size:13.5px}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+#toast.on{opacity:1}
+.lgi{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.lgi input{width:auto;margin:0;accent-color:var(--blue)}
+.lgi.off{opacity:.55}
+.pending{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.pend{display:inline-flex;align-items:center;gap:6px;background:var(--soft);border-radius:999px;padding:3px 6px 3px 10px;font-size:12.5px}
+.pend button{border:0;background:transparent;color:var(--ink2);cursor:pointer;font-size:16px;line-height:1;padding:0 4px}
+.thumb{max-width:140px;max-height:140px;border-radius:8px;border:1px solid var(--line);margin-top:10px}
+td input{padding:4px 6px;font-size:13px;min-width:110px}
+td input[type=checkbox]{width:auto;min-width:0}
+tr.flag input[type=date]{border-color:var(--gold)}
+#err{display:none;background:var(--bad-bg);color:var(--bad-ink);padding:10px 16px;font-size:13px}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div id="err" role="alert"></div>
+<noscript><p style="padding:16px">This dashboard needs JavaScript turned on.</p></noscript>
+<header>
+  <div class="wrap">
+    <div class="top"><h1>Fat-loss dashboard</h1><span class="meta" id="meta"></span></div>
+    <nav role="tablist" aria-label="Sections" id="tabs">
+      <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+      <button role="tab" data-tab="log" aria-selected="false">Log</button>
+      <button role="tab" data-tab="plan" aria-selected="false">Goal and calories</button>
+      <button role="tab" data-tab="coach" aria-selected="false">Coach</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section id="tab-overview">
+  <div class="card">
+    <h2>Progress to goal</h2>
+    <div class="ends"><span id="s0"></span><span id="s1"></span></div>
+    <div class="bar" role="progressbar" aria-label="Progress to goal weight" aria-valuemin="0" aria-valuemax="100" id="pb"><div id="fill"></div></div>
+    <div class="grid" id="k1"></div>
+    <div class="grid" id="k2"></div>
+  </div>
+  <div class="card"><h2>How it's going</h2><div id="notes"></div></div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <h2 style="margin:0">Daily weights and projections</h2>
+      <div class="row" style="gap:6px"><button class="btn sm" id="visAll" type="button">Show all</button><button class="btn sm" id="visNone" type="button">Hide all</button></div>
+    </div>
+    <div class="legend" id="lg" aria-label="Toggle chart lines"></div>
+    <div class="chart"><canvas id="c" role="img" aria-label="Daily weights with trend line and projected paths to the goal weight">Daily weights, trend and projected paths to goal.</canvas></div>
+  </div>
+  <div class="card"><h2>Weekly averages (Monday to Sunday)</h2><div class="scroll"><table id="wk"></table></div></div>
+  <div class="card"><h2>Milestone dates</h2><div class="scroll"><table id="ms"></table></div></div>
+</section>
+
+<section id="tab-log" hidden>
+  <div class="card">
+    <h2>Log a day</h2>
+    <form class="row" id="logForm">
+      <label>Date<input type="date" id="lDate" required></label>
+      <label>Weight (kg)<input type="number" id="lKg" step="0.1" min="30" max="300" inputmode="decimal" required></label>
+      <label>Calories (optional)<input type="number" id="lKcal" step="10" min="0" max="8000" inputmode="numeric"></label>
+      <label style="flex:2 1 200px">Note (optional)<input type="text" id="lNote" maxlength="120" placeholder="Gym, badminton, high-salt dinner"></label>
+      <button class="btn pri" type="submit">Save entry</button>
+    </form>
+    <p class="small" style="margin:8px 0 0">Saving a date that already exists replaces that entry. Data is stored in this browser.</p>
+  </div>
+  <div class="card">
+    <h2>Scan a photo of your weight</h2>
+    <p class="small" style="margin:0 0 10px">Upload a photo of your scale, or a screenshot of your weekly weights from a health app. Claude reads the numbers and you confirm them before they are added. The dashboard then updates by itself.</p>
+    <div class="row">
+      <label style="flex:2 1 220px">Photo<input type="file" id="scanFile" accept="image/*"></label>
+      <label>Date if none is visible<input type="date" id="scanDate"></label>
+      <button class="btn pri" id="scanBtn" type="button">Read weights</button>
+    </div>
+    <img id="scanThumb" class="thumb" alt="Preview of the selected photo" hidden>
+    <div id="scanOut" style="margin-top:12px"></div>
+    <p class="small" style="margin:10px 0 0">Needs your Claude connection (Coach tab). The photo is sent to Anthropic to be read and is not saved.</p>
+  </div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <h2 style="margin:0">History</h2>
+      <div class="row">
+        <button class="btn sm" id="expCsv" type="button">Export CSV</button>
+        <button class="btn sm" id="expJson" type="button">Backup JSON</button>
+        <button class="btn sm" id="impBtn" type="button">Import JSON</button>
+        <input type="file" id="impFile" accept="application/json" hidden>
+      </div>
+    </div>
+    <div class="scroll"><table id="logT"></table></div>
+  </div>
+  <div class="card">
+    <h3>Keep your data on GitHub</h3>
+    <p class="small" style="margin:0">Browser storage can be cleared. Use Backup JSON now and then, and commit the file to your repo. Import JSON restores it on any device.</p>
+    <div style="margin-top:10px"><button class="btn sm danger" id="reset" type="button">Reset all data</button></div>
+  </div>
+</section>
+
+<section id="tab-plan" hidden>
+  <div class="card">
+    <h2>Goal and settings</h2>
+    <div class="row">
+      <label>Goal weight (kg)<input type="number" id="gGoal" step="0.1" min="30" max="300"></label>
+      <label>Goal date<input type="date" id="gDate"></label>
+      <label>Deficit start date<input type="date" id="gStart"></label>
+      <label>Pre-deficit average (kg)<input type="number" id="gBase" step="0.1" min="30" max="300"></label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label>Height (cm)<input type="number" id="gH" min="120" max="230"></label>
+      <label>Age<input type="number" id="gAge" min="16" max="90"></label>
+      <label>Activity
+        <select id="gAct">
+          <option value="1.375">Light (1-3 sessions/wk)</option>
+          <option value="1.55">Moderate (3-5 sessions/wk)</option>
+          <option value="1.725">Very active (6-7 sessions/wk)</option>
+          <option value="1.9">Extra active (hard daily)</option>
+        </select>
+      </label>
+      <label>Current daily calories<input type="number" id="gKcal" step="10" min="0" max="8000" placeholder="Not set"></label>
+    </div>
+    <p class="small" style="margin:10px 0 0">Changes save automatically. If you log 3 or more weigh-ins before the start date, their average replaces the pre-deficit figure.</p>
+  </div>
+  <div class="card"><h2>Is the goal date realistic?</h2><div id="dateCheck"></div></div>
+  <div class="card"><h2>Calorie recommendations</h2><div id="plans"></div></div>
+</section>
+
+<section id="tab-coach" hidden>
+  <div class="card">
+    <h2>Ask Claude</h2>
+    <div class="chat" id="chat" aria-live="polite"></div>
+    <div class="chips" id="chips"></div>
+    <form id="chatForm">
+      <div class="pending" id="pending"></div>
+      <textarea id="chatIn" rows="2" placeholder="Ask about your week, your deficit, a plateau..." aria-label="Message to Claude"></textarea>
+      <div class="row" style="margin-top:8px;justify-content:space-between">
+        <div class="row" style="gap:6px">
+          <button class="btn sm" id="chatClear" type="button">Clear chat</button>
+          <button class="btn sm" id="attachBtn" type="button">Attach file</button>
+          <input type="file" id="attachFile" multiple accept="image/*,application/pdf,.csv,.txt,.json,.md" hidden>
+        </div>
+        <button class="btn pri" id="chatSend" type="submit">Send</button>
+      </div>
+    </form>
+    <details id="apiBox">
+      <summary>Claude connection</summary>
+      <div class="row" style="margin-top:10px">
+        <label style="flex:2 1 220px">Anthropic API key<input type="password" id="apiKey" autocomplete="off" placeholder="sk-ant-..."></label>
+        <label>Model<input type="text" id="apiModel"></label>
+      </div>
+      <p class="small">The key is saved only in this browser and sent only to api.anthropic.com. Anyone with access to this browser can read it, so use a personal key with a spend limit, and never put it in the file or the repo.</p>
+    </details>
+  </div>
+</section>
+</main>
+<div id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const DEFAULTS = {
+  settings: { goal: 100, goalDate: "", start: "2026-11-09", baseline: 102.5, heightCm: 170, age: 24, activity: 1.55, kcal: null, model: "claude-sonnet-5-5" },
+  log: [
+    { date: "2026-11-09", kg: 102.5 },
+    { date: "2026-11-10", kg: 102.0 },
+    { date: "2026-11-11", kg: 101.5 },
+    { date: "2026-11-12", kg: 100.0 }
+  ]
+};
+
+const KEY = "fatloss.v2", AKEY = "fatloss.apikey", CKEY = "fatloss.chat";
+const DAY = 864e5, KCAL_PER_KG = 7700;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const f1 = v => v.toFixed(1), f2 = v => v.toFixed(2);
+const sgn = v => (v > 0 ? "+" : "") + f2(v);
+const avg = a => a.reduce((s, v) => s + v, 0) / a.length;
+const toMs = s => Date.parse(s);
+const iso = ms => new Date(ms).toISOString().slice(0, 10);
+const today = () => new Date().toLocaleDateString("en-CA");
+const fmtD = ms => new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+const fmtDY = ms => new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+window.addEventListener("error", e => { const b = document.getElementById("err"); b.style.display = "block"; b.textContent = "Something went wrong: " + e.message + ". Try reloading, and tell me this message if it keeps happening."; });
+let S = load();
+function load() {
+  try {
+    const r = JSON.parse(localStorage.getItem(KEY));
+    if (r && r.settings && Array.isArray(r.log)) return { settings: { ...DEFAULTS.settings, ...r.settings }, log: r.log };
+  } catch (e) {}
+  return JSON.parse(JSON.stringify(DEFAULTS));
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast("Could not save to this browser"); }
+}
+let tt;
+function toast(t) {
+  const el = $("toast"); el.textContent = t; el.classList.add("on");
+  clearTimeout(tt); tt = setTimeout(() => el.classList.remove("on"), 1800);
+}
+
+function compute() {
+  const st = S.settings, START = toMs(st.start);
+  const all = [...S.log].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const pre = all.filter(e => e.date < st.start);
+  const baseAuto = pre.length >= 3;
+  const base = baseAuto ? avg(pre.map(e => e.kg)) : st.baseline;
+  const pts = all.filter(e => e.date >= st.start).map(e => ({ x: Math.round((toMs(e.date) - START) / DAY), y: e.kg, kcal: e.kcal, date: e.date }));
+  const n = pts.length;
+  const last = n ? pts[n - 1] : { x: 0, y: base };
+  const now = n ? avg(pts.slice(-3).map(p => p.y)) : base;
+  const lost = base - now, toGo = Math.max(0, now - st.goal);
+  const span = base - st.goal;
+  const pct = span > 0 ? Math.max(0, Math.min(100, lost / span * 100)) : (now <= st.goal ? 100 : 0);
+  let slope = 0, icpt = base;
+  if (n > 1) {
+    const mx = avg(pts.map(p => p.x)), my = avg(pts.map(p => p.y));
+    let sxy = 0, sxx = 0;
+    pts.forEach(p => { sxy += (p.x - mx) * (p.y - my); sxx += (p.x - mx) ** 2; });
+    slope = sxx ? sxy / sxx : 0; icpt = my - slope * mx;
+  }
+  const wk = new Map();
+  pts.forEach(p => {
+    const dow = (new Date(START + p.x * DAY).getUTCDay() + 6) % 7, mon = p.x - dow;
+    if (!wk.has(mon)) wk.set(mon, []);
+    wk.get(mon).push(p);
+  });
+  const weeks = [...wk.entries()].sort((a, b) => a[0] - b[0]).map(([mon, ps]) => {
+    const ks = ps.filter(p => p.kcal != null).map(p => p.kcal);
+    return { mon, n: ps.length, avg: avg(ps.map(p => p.y)), kcal: ks.length ? avg(ks) : null };
+  });
+  const seq = [base, ...weeks.map(w => w.avg)];
+  const pace2 = seq.length >= 3 ? (seq[seq.length - 1] - seq[seq.length - 3]) / 2 : null;
+  const gx = st.goalDate ? Math.round((toMs(st.goalDate) - START) / DAY) : null;
+  return { st, START, all, pts, n, last, now, base, baseAuto, lost, toGo, pct, slope, icpt, trendWk: slope * 7, weeks, seq, pace2, gx };
+}
+
+function plansFor(C) {
+  const st = C.st, bw = C.now;
+  const bmr = 10 * bw + 6.25 * st.heightCm - 5 * st.age + 5;
+  const tdee = bmr * st.activity;
+  const floor = Math.max(1800, bmr);
+  const mk = (name, pctBW) => {
+    let kg = bw * pctBW / 100, def = kg * KCAL_PER_KG / 7, intake = tdee - def, capped = false;
+    if (intake < floor) { intake = floor; def = tdee - intake; kg = def * 7 / KCAL_PER_KG; capped = true; }
+    const days = C.toGo > 0 && kg > 0 ? C.toGo / kg * 7 : 0;
+    return { name, pctBW, kg, def: Math.round(def / 10) * 10, intake: Math.round(intake / 10) * 10, capped, days };
+  };
+  return { bmr, tdee, floor, list: [mk("Normal", 0.5), mk("Aggressive", 1.0)] };
+}
+
+function reqRate(C) {
+  if (C.gx == null) return null;
+  const daysLeft = C.gx - C.last.x;
+  if (C.toGo <= 0) return { done: true };
+  if (daysLeft <= 0) return { past: true };
+  const kg = C.toGo / (daysLeft / 7);
+  return { kg, pctBW: kg / C.now * 100, days: daysLeft };
+}
+
+let C, P, chart;
+function render() {
+  C = compute(); P = plansFor(C);
+  const st = C.st;
+  $("meta").textContent = C.n ? C.n + " weigh-ins since " + fmtD(C.START) + ", latest " + fmtD(C.START + C.last.x * DAY) : "No weigh-ins yet";
+  $("s0").textContent = "Start " + f1(C.base) + " kg";
+  $("s1").textContent = "Goal " + f1(st.goal) + " kg" + (st.goalDate ? " by " + fmtD(toMs(st.goalDate)) : "");
+  $("fill").style.width = C.pct + "%";
+  $("pb").setAttribute("aria-valuenow", Math.round(C.pct));
+  const stat = (l, v, e) => '<div class="stat"><small>' + l + "</small><b>" + v + "</b>" + (e ? "<em>" + e + "</em>" : "") + "</div>";
+  $("k1").innerHTML = stat("Done", Math.round(C.pct) + "%") + stat("Lost (3-day avg)", f2(C.lost) + " kg") + stat("To go", f2(C.toGo) + " kg") + stat("Latest weigh-in", C.n ? f1(C.last.y) + " kg" : "-");
+  $("k2").innerHTML =
+    stat("Overall trend", C.n > 1 ? f2(C.trendWk) + " kg/wk" : "n/a", C.n < 7 ? "only " + C.n + " days, unreliable" : "line fit, all days") +
+    stat("Last 2 weeks pace", C.pace2 === null ? "n/a" : f2(C.pace2) + " kg/wk", C.pace2 === null ? "needs 2+ weeks of averages" : "from weekly averages");
+  renderNotes(); renderWeekly(); renderMilestones(); renderLog(); renderPlans();
+  if (!$("tab-overview").hidden) drawChart();
+}
+
+function renderNotes() {
+  const st = C.st; let h = "";
+  const add = (c, t) => { h += '<div class="msg ' + c + '">' + t + "</div>"; };
+  const daysIn = C.last.x + 1;
+  if (C.n && daysIn <= 14 && C.lost > 0.01 * C.base) add("warn", "Early drop of " + f1(C.lost) + " kg is likely mostly water and glycogen. Expect the pace to slow after the first 1-2 weeks.");
+  if (C.pace2 !== null && -C.pace2 > 1) add("warn", "Losing faster than 1 kg/week over the last 2 weeks. Consider adding calories, especially if gym performance is dropping.");
+  if (C.pace2 !== null && Math.abs(C.pace2) < 0.1 && daysIn >= 10) add("warn", "Weekly average looks flat. Try a small trim (100-150 kcal) or more walking, not a big cut.");
+  if (C.pace2 !== null && -C.pace2 >= 0.3 && -C.pace2 <= 1) add("ok", "Pace of " + f2(-C.pace2) + " kg/week is in the healthy range (about 0.5-1% of bodyweight).");
+  if (st.kcal != null && st.kcal < 1500) add("bad", "Your logged intake of " + st.kcal + " kcal is very low for someone training this much. Check it, and see the calorie recommendations.");
+  const rr = reqRate(C);
+  if (rr && rr.kg) add(rr.pctBW > 1 ? "warn" : "info", "Goal date needs " + f2(rr.kg) + " kg/week (" + f2(rr.pctBW) + "% of bodyweight)." + (rr.pctBW > 1 ? " That is above the recommended ceiling." : ""));
+  if (rr && rr.past) add("warn", "Your goal date has passed. Set a new one in Goal and calories.");
+  if (C.toGo <= 0 && C.n) add("ok", "Your 3-day average is at or below your goal weight.");
+  if (!h) add("info", "Not enough data yet to judge the pace. Judge by weekly averages, not single days.");
+  $("notes").innerHTML = h;
+}
+
+function renderWeekly() {
+  let h = "<tr><th>Week of</th><th>Days</th><th>Average</th><th>Change</th><th>Avg kcal</th></tr>";
+  h += "<tr><td>Before deficit</td><td>-</td><td>" + f2(C.base) + "</td><td>-</td><td>-</td></tr>";
+  C.weeks.forEach((w, i) => {
+    h += "<tr><td>" + fmtD(C.START + w.mon * DAY) + (w.n < 7 ? " (partial)" : "") + "</td><td>" + w.n + "</td><td>" + f2(w.avg) + "</td><td>" + sgn(w.avg - C.seq[i]) + "</td><td>" + (w.kcal == null ? "-" : Math.round(w.kcal)) + "</td></tr>";
+  });
+  $("wk").innerHTML = h;
+}
+
+const RATES = [
+  { name: "Target", r: 0.5, key: "--orange", dash: [7, 4], w: 2.2 },
+  { name: "Fast", r: 0.7, key: "--green", dash: [2, 3], w: 1.6 },
+  { name: "Slow", r: 0.4, key: "--violet", dash: [10, 4], w: 1.6 }
+];
+const reachX = o => C.last.x + Math.max(0, C.now - C.st.goal) / o.r * 7;
+
+function renderMilestones() {
+  let m = "<tr><th>Weight</th>" + RATES.map(o => "<th>" + o.name + " " + o.r + "</th>").join("") + "</tr>";
+  let rows = 0;
+  for (let k = Math.ceil(C.now) - 1; k >= C.st.goal; k--) {
+    rows++;
+    m += "<tr><td>" + k + " kg</td>" + RATES.map(o => "<td>" + fmtD(C.START + (C.last.x + (C.now - k) / o.r * 7) * DAY) + "</td>").join("") + "</tr>";
+  }
+  $("ms").innerHTML = rows ? m : '<tr><td class="empty">Goal weight reached.</td></tr>';
+}
+
+const VKEY = "fatloss.vis";
+const VIS = { trend: true, target: true, fast: true, slow: true, needed: true, date: true };
+try { Object.assign(VIS, JSON.parse(localStorage.getItem(VKEY)) || {}); } catch (e) {}
+function saveVis() { try { localStorage.setItem(VKEY, JSON.stringify(VIS)); } catch (e) {} }
+
+function drawChart() {
+  if (typeof Chart === "undefined") { $("lg").innerHTML = '<span class="small">The chart library could not load. Check your internet connection and reload.</span>'; return; }
+  const css = getComputedStyle(document.documentElement), v = k => css.getPropertyValue(k).trim();
+  const blue = v("--blue"), mute = v("--mute"), grid = v("--grid"), goalC = v("--goal"), gold = v("--gold");
+  const rr = reqRate(C), reach = RATES.map(reachX);
+  const xmax = Math.ceil(Math.max(...reach, C.last.x, C.gx || 0) + 3);
+  const ys = C.pts.map(p => p.y).concat([C.base, C.st.goal]);
+  const ymin = Math.floor(C.st.goal - 1), ymax = Math.ceil(Math.max(...ys) + 0.5);
+  const canReq = !!(rr && rr.kg), canDate = C.gx != null && C.gx >= 0;
+  const items = [
+    ["trend", blue, "dotted", "Trend line", C.n > 1],
+    ...RATES.map((o, i) => [o.name.toLowerCase(), v(o.key), "dashed", o.name + " " + o.r + " kg/wk: " + fmtD(C.START + reach[i] * DAY), true]),
+    ["needed", gold, "dashed", canReq ? "Needed for goal date: " + f2(rr.kg) + " kg/wk" : "", canReq],
+    ["date", goalC, "dotted", "Goal date", canDate]
+  ].filter(x => x[4]);
+  $("lg").innerHTML = items.map(([k, c, s, l]) =>
+    '<label class="lgi' + (VIS[k] ? "" : " off") + '"><input type="checkbox" data-vis="' + k + '"' + (VIS[k] ? " checked" : "") + '><i style="border-color:' + c + ";border-top-style:" + s + '"></i>' + l + "</label>").join("") +
+    '<span class="lgi" style="cursor:default"><i style="border-color:' + goalC + ';border-top-style:dashed"></i>Goal weight</span>';
+  const ds = [
+    { label: "Daily", type: "scatter", data: C.pts, backgroundColor: blue, borderColor: blue, pointRadius: 5 },
+    { label: "Trend", vis: "trend", hidden: !VIS.trend, type: "line", data: C.n > 1 ? [{ x: 0, y: C.icpt }, { x: C.last.x, y: C.icpt + C.slope * C.last.x }] : [], borderColor: blue, borderDash: [2, 4], borderWidth: 2, pointRadius: 0 },
+    ...RATES.map((o, i) => ({ label: o.name, vis: o.name.toLowerCase(), hidden: !VIS[o.name.toLowerCase()], type: "line", borderColor: v(o.key), borderDash: o.dash, borderWidth: o.w, data: [{ x: C.last.x, y: C.now }, { x: reach[i], y: C.st.goal }], pointRadius: [3, 4], pointBackgroundColor: v(o.key) })),
+    { label: "Goal", type: "line", data: [{ x: 0, y: C.st.goal }, { x: xmax, y: C.st.goal }], borderColor: goalC, borderDash: [10, 5], borderWidth: 1.5, pointRadius: 0 }
+  ];
+  if (canReq) ds.push({ label: "Needed", vis: "needed", hidden: !VIS.needed, type: "line", data: [{ x: C.last.x, y: C.now }, { x: C.gx, y: C.st.goal }], borderColor: gold, borderDash: [4, 2, 1, 2], borderWidth: 2, pointRadius: 0 });
+  if (canDate) ds.push({ label: "Goal date", vis: "date", hidden: !VIS.date, type: "line", data: [{ x: C.gx, y: ymin }, { x: C.gx, y: ymax }], borderColor: goalC, borderDash: [3, 3], borderWidth: 1, pointRadius: 0 });
+  if (chart) chart.destroy();
+  chart = new Chart($("c"), {
+    data: { datasets: ds },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => fmtD(C.START + i[0].parsed.x * DAY), label: i => f1(i.parsed.y) + " kg" } } },
+      scales: {
+        x: { type: "linear", min: 0, max: xmax, grid: { display: false }, ticks: { color: mute, stepSize: 7, callback: t => fmtD(C.START + t * DAY) } },
+        y: { min: ymin, max: ymax, grid: { color: grid }, ticks: { color: mute, callback: t => t + " kg" } }
+      }
+    }
+  });
+}
+function applyVis() {
+  if (!chart) return;
+  chart.data.datasets.forEach(d => { if (d.vis) d.hidden = !VIS[d.vis]; });
+  chart.update();
+  document.querySelectorAll("#lg input[data-vis]").forEach(i => { i.checked = !!VIS[i.dataset.vis]; i.parentElement.classList.toggle("off", !VIS[i.dataset.vis]); });
+}
+$("lg").addEventListener("change", e => {
+  const k = e.target.dataset && e.target.dataset.vis; if (!k) return;
+  VIS[k] = e.target.checked; saveVis(); applyVis();
+});
+$("visAll").addEventListener("click", () => { Object.keys(VIS).forEach(k => { VIS[k] = true; }); saveVis(); applyVis(); });
+$("visNone").addEventListener("click", () => { Object.keys(VIS).forEach(k => { VIS[k] = false; }); saveVis(); applyVis(); });
+
+function renderLog() {
+  const rows = [...S.log].sort((a, b) => (a.date < b.date ? 1 : -1));
+  if (!rows.length) { $("logT").innerHTML = '<tr><td class="empty">No entries yet. Log your first weigh-in above.</td></tr>'; return; }
+  let h = "<tr><th>Date</th><th>Weight</th><th>kcal</th><th>Note</th><th></th></tr>";
+  rows.forEach(e => {
+    h += "<tr><td>" + fmtDY(toMs(e.date)) + (e.date < C.st.start ? ' <span class="small">(before start)</span>' : "") + "</td><td>" + f1(e.kg) + "</td><td>" + (e.kcal == null ? "-" : e.kcal) + '</td><td class="note">' + esc(e.note || "") + '</td><td><button class="btn sm danger" data-del="' + e.date + '" aria-label="Delete entry ' + e.date + '">Delete</button></td></tr>';
+  });
+  $("logT").innerHTML = h;
+}
+
+function planCard(p, rec) {
+  const cur = C.st.kcal;
+  const when = C.toGo <= 0 ? "Goal reached" : fmtDY(C.START + (C.last.x + p.days) * DAY);
+  return '<div class="plan' + (rec ? " rec" : "") + '"><span class="tag' + (rec ? " blue" : "") + '">' + (rec ? "Recommended" : "Faster, harder") + "</span>" +
+    "<h3>" + p.name + "</h3><div class=\"big\">" + p.intake + ' <span class="small">kcal/day</span></div>' +
+    "<dl><dt>Daily deficit</dt><dd>" + p.def + " kcal</dd><dt>Expected loss</dt><dd>" + f2(p.kg) + " kg/week</dd><dt>Of bodyweight</dt><dd>" + f2(p.kg / C.now * 100) + "%/week</dd><dt>Reaches goal</dt><dd>" + when + "</dd><dt>Protein</dt><dd>about " + Math.round(1.6 * Math.max(C.st.goal, 40)) + " g/day</dd></dl>" +
+    (p.capped ? '<div class="msg warn" style="font-size:12.5px">Capped at a safe minimum intake, so the deficit is smaller than the percentage target.</div>' : "") +
+    (p.name === "Aggressive" ? '<p class="small" style="margin:0 0 8px">Harder on training, sleep and hunger. Best kept to 4-6 weeks, then switch to Normal.</p>' : '<p class="small" style="margin:0 0 8px">Easier to hold while training 5 days a week, and better for keeping muscle.</p>') +
+    '<button class="btn sm' + (rec ? " pri" : "") + '" data-setk="' + p.intake + '">Use as my calories' + (cur === p.intake ? " (current)" : "") + "</button></div>";
+}
+
+function renderPlans() {
+  const st = C.st, rr = reqRate(C);
+  let chk = "";
+  if (st.goalDate == null || st.goalDate === "") chk = '<div class="msg info">No goal date set. Pick one above to see the pace it needs.</div>';
+  else if (rr && rr.done) chk = '<div class="msg ok">You are already at your goal weight on the 3-day average.</div>';
+  else if (rr && rr.past) chk = '<div class="msg warn">That date has passed. Set a new goal date.</div>';
+  else if (rr) {
+    const rate = rr.kg, def = Math.round(rate * KCAL_PER_KG / 7 / 10) * 10, intake = Math.round((P.tdee - def) / 10) * 10;
+    const verdict = rr.pctBW <= 0.7 ? ["ok", "Comfortable. This is at or below the Normal pace."] : rr.pctBW <= 1 ? ["warn", "Tight but possible. It sits between Normal and Aggressive."] : ["bad", "Too fast. This is above 1% of bodyweight per week. Push the date back."];
+    chk = '<div class="msg ' + verdict[0] + '">' + verdict[1] + "</div>" +
+      '<div class="grid" style="margin-top:0">' + [["Days left", rr.days], ["Needed pace", f2(rate) + " kg/wk"], ["Needed deficit", def + " kcal/day"], ["Implied intake", intake + " kcal"]].map(x => '<div class="stat"><small>' + x[0] + "</small><b>" + x[1] + "</b></div>").join("") + "</div>";
+    const slow = RATES[0], slowDate = fmtDY(C.START + reachX(slow) * DAY);
+    chk += '<p class="small" style="margin:10px 0 0">At 0.5 kg/week you would reach your goal around ' + slowDate + ".</p>";
+  }
+  $("dateCheck").innerHTML = chk;
+  let h = '<div class="plans">' + P.list.map((p, i) => planCard(p, i === 0)).join("") + "</div>";
+  h += '<p class="small" style="margin:12px 0 0">Maintenance estimate: about ' + Math.round(P.tdee / 10) * 10 + " kcal/day (BMR " + Math.round(P.bmr) + " x activity " + st.activity + "). Calculator estimates can be 10-15% off. After 2-3 weeks, trust your weekly averages over this number and adjust by 100-150 kcal.</p>";
+  if (st.kcal != null) {
+    const d = P.tdee - st.kcal;
+    h = '<div class="msg ' + (st.kcal < 1500 ? "bad" : "info") + '">Your current intake is ' + st.kcal + " kcal, an estimated " + (d >= 0 ? "deficit" : "surplus") + " of " + Math.abs(Math.round(d / 10) * 10) + " kcal/day (about " + f2(Math.abs(d) * 7 / KCAL_PER_KG) + " kg/week)." + (st.kcal < 1500 ? " That is very low for your size and training. If it is a typo, fix it above." : "") + "</div>" + h;
+  }
+  $("plans").innerHTML = h;
+}
+
+document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
+function showTab(t) {
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === t));
+  ["overview", "log", "plan", "coach"].forEach(k => { $("tab-" + k).hidden = k !== t; });
+  if (t === "overview") drawChart();
+  if (t === "coach") { const c = $("chat"); c.scrollTop = c.scrollHeight; }
+  window.scrollTo(0, 0);
+}
+
+$("lDate").value = today();
+$("logForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const date = $("lDate").value, kg = parseFloat($("lKg").value);
+  const kc = $("lKcal").value === "" ? null : parseInt($("lKcal").value, 10);
+  if (!date || !(kg >= 30 && kg <= 300)) { toast("Enter a valid date and weight"); return; }
+  const entry = { date, kg: Math.round(kg * 10) / 10 };
+  if (kc != null && kc >= 0) entry.kcal = kc;
+  const note = $("lNote").value.trim(); if (note) entry.note = note;
+  const i = S.log.findIndex(x => x.date === date);
+  if (i >= 0) S.log[i] = entry; else S.log.push(entry);
+  save(); render(); toast(i >= 0 ? "Entry updated" : "Entry saved");
+  $("lKg").value = ""; $("lKcal").value = ""; $("lNote").value = ""; $("lKg").focus();
+});
+$("logT").addEventListener("click", e => {
+  const d = e.target.dataset && e.target.dataset.del;
+  if (!d) return;
+  if (!confirm("Delete the entry for " + d + "?")) return;
+  S.log = S.log.filter(x => x.date !== d); save(); render(); toast("Entry deleted");
+});
+
+function download(name, text, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+$("expCsv").addEventListener("click", () => {
+  const q = s => '"' + String(s || "").replace(/"/g, '""') + '"';
+  const rows = [...S.log].sort((a, b) => (a.date < b.date ? -1 : 1)).map(e => [e.date, e.kg, e.kcal == null ? "" : e.kcal, q(e.note)].join(","));
+  download("weigh-ins.csv", "date,kg,kcal,note\n" + rows.join("\n"), "text/csv");
+});
+$("expJson").addEventListener("click", () => download("fatloss-backup.json", JSON.stringify({ settings: { ...S.settings, model: undefined }, log: S.log }, null, 2), "application/json"));
+$("impBtn").addEventListener("click", () => $("impFile").click());
+$("impFile").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!d || !Array.isArray(d.log)) throw new Error("bad");
+      const log = d.log.filter(x => x && /^\d{4}-\d{2}-\d{2}$/.test(x.date) && typeof x.kg === "number");
+      if (!confirm("Replace your current data with " + log.length + " imported entries?")) return;
+      const s = { ...DEFAULTS.settings, ...(d.settings || {}) }; if (!d.settings || !d.settings.model) s.model = S.settings.model;
+      S = { settings: s, log }; save(); fillSettings(); render(); toast("Imported " + log.length + " entries");
+    } catch (err) { toast("That file is not a valid backup"); }
+  };
+  r.readAsText(f); e.target.value = "";
+});
+$("reset").addEventListener("click", () => {
+  if (!confirm("Reset all data to the defaults? This cannot be undone.")) return;
+  S = JSON.parse(JSON.stringify(DEFAULTS)); save(); fillSettings(); render(); toast("Data reset");
+});
+
+function fillSettings() {
+  const s = S.settings;
+  $("gGoal").value = s.goal; $("gDate").value = s.goalDate || ""; $("gStart").value = s.start; $("gBase").value = s.baseline;
+  $("gH").value = s.heightCm; $("gAge").value = s.age; $("gAct").value = String(s.activity); $("gKcal").value = s.kcal == null ? "" : s.kcal;
+  $("apiModel").value = s.model || DEFAULTS.settings.model;
+}
+function bind(id, fn) {
+  $(id).addEventListener("change", () => { if (fn($(id).value) === false) { toast("That value is not valid"); fillSettings(); return; } save(); render(); toast("Saved"); });
+}
+const num = (v, lo, hi) => { const n = parseFloat(v); return n >= lo && n <= hi ? n : null; };
+bind("gGoal", v => { const n = num(v, 30, 300); if (n == null) return false; S.settings.goal = n; });
+bind("gDate", v => { S.settings.goalDate = v || ""; });
+bind("gStart", v => { if (!v) return false; S.settings.start = v; });
+bind("gBase", v => { const n = num(v, 30, 300); if (n == null) return false; S.settings.baseline = n; });
+bind("gH", v => { const n = num(v, 120, 230); if (n == null) return false; S.settings.heightCm = n; });
+bind("gAge", v => { const n = num(v, 16, 90); if (n == null) return false; S.settings.age = n; });
+bind("gAct", v => { S.settings.activity = parseFloat(v); });
+bind("gKcal", v => { if (v === "") { S.settings.kcal = null; return; } const n = num(v, 0, 8000); if (n == null) return false; S.settings.kcal = Math.round(n); });
+$("plans").addEventListener("click", e => {
+  const k = e.target.dataset && e.target.dataset.setk; if (!k) return;
+  S.settings.kcal = parseInt(k, 10); $("gKcal").value = k; save(); render(); toast("Calories set to " + k);
+});
+
+const CHIPS = ["Summarize my week", "Am I on track for my goal date?", "Is my calorie plan too aggressive?", "Why did my weight jump today?"];
+let hist = [];
+try { hist = JSON.parse(localStorage.getItem(CKEY)) || []; } catch (e) {}
+function md(s) {
+  const lines = esc(s).split("\n"); let out = "", ul = false;
+  const inl = t => t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`(.+?)`/g, "<code>$1</code>");
+  lines.forEach(l => {
+    const m = l.match(/^\s*[-*] (.+)/);
+    if (m) { if (!ul) { out += "<ul>"; ul = true; } out += "<li>" + inl(m[1]) + "</li>"; }
+    else { if (ul) { out += "</ul>"; ul = false; } if (l.trim()) out += "<p>" + inl(l) + "</p>"; }
+  });
+  return out + (ul ? "</ul>" : "");
+}
+function renderChat(pending) {
+  let h = "";
+  if (!hist.length) h += '<div class="bub a"><p>Hi, I can see your weigh-ins, goal and calorie plans. Ask me how the week went, or what to change.</p></div>';
+  hist.forEach(m => { h += '<div class="bub ' + (m.role === "user" ? "u" : "a") + '">' + (m.role === "user" ? "<p>" + esc(m.content).replace(/\n/g, "<br>") + "</p>" + (m.att && m.att.length ? '<p style="font-size:12px;opacity:.85">Attached: ' + esc(m.att.join(", ")) + "</p>" : "") : md(m.content)) + "</div>"; });
+  if (pending) h += '<div class="bub a"><p class="small">Thinking...</p></div>';
+  $("chat").innerHTML = h; $("chat").scrollTop = $("chat").scrollHeight;
+}
+$("chips").innerHTML = CHIPS.map(c => '<button type="button" class="chip">' + esc(c) + "</button>").join("");
+$("chips").addEventListener("click", e => { if (e.target.classList.contains("chip")) ask(e.target.textContent); });
+$("chatForm").addEventListener("submit", e => { e.preventDefault(); const t = $("chatIn").value.trim(); if (t || attached.length) { $("chatIn").value = ""; ask(t || "Please look at the attached file and tell me what matters for my weight tracking."); } });
+$("chatIn").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("chatForm").requestSubmit(); } });
+$("chatClear").addEventListener("click", () => { hist = []; localStorage.removeItem(CKEY); renderChat(); });
+$("apiKey").value = localStorage.getItem(AKEY) || "";
+$("apiKey").addEventListener("change", () => { const k = $("apiKey").value.trim(); if (k) localStorage.setItem(AKEY, k); else localStorage.removeItem(AKEY); toast("Key saved in this browser"); });
+$("apiModel").addEventListener("change", () => { S.settings.model = $("apiModel").value.trim() || DEFAULTS.settings.model; save(); });
+
+function snapshot() {
+  const st = C.st, rr = reqRate(C);
+  return {
+    today: today(),
+    goal_kg: st.goal, goal_date: st.goalDate || null, deficit_start: st.start,
+    pre_deficit_avg_kg: +C.base.toFixed(2), current_3day_avg_kg: +C.now.toFixed(2), latest_kg: C.n ? C.last.y : null,
+    lost_kg: +C.lost.toFixed(2), to_go_kg: +C.toGo.toFixed(2), percent_done: Math.round(C.pct),
+    trend_kg_per_week: C.n > 1 ? +C.trendWk.toFixed(2) : null, trend_days: C.n,
+    two_week_pace_kg_per_week: C.pace2 == null ? null : +C.pace2.toFixed(2),
+    weekly_averages: C.weeks.map(w => ({ week_of: iso(C.START + w.mon * DAY), days: w.n, avg_kg: +w.avg.toFixed(2), avg_kcal: w.kcal == null ? null : Math.round(w.kcal) })),
+    recent_log: [...S.log].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 21),
+    profile: { age: st.age, height_cm: st.heightCm, sex: "male", activity_multiplier: st.activity, current_daily_kcal: st.kcal },
+    maintenance_kcal: Math.round(P.tdee),
+    plans: P.list.map(p => ({ name: p.name, intake_kcal: p.intake, deficit_kcal: p.def, kg_per_week: +p.kg.toFixed(2) })),
+    needed_for_goal_date: rr && rr.kg ? { kg_per_week: +rr.kg.toFixed(2), percent_bodyweight_per_week: +rr.pctBW.toFixed(2) } : null
+  };
+}
+function system() {
+  return "You are a concise, honest fat-loss coach inside the user's personal dashboard. Be direct and practical, use short paragraphs or bullets, and keep most replies under 150 words.\n" +
+    "Rules: judge progress by weekly averages and the trend, never single days (daily weight swings 0.5-1 kg from water, salt, carbs and gut content). Flag fast drops early in a diet as likely water. " +
+    "Aim for about 0.5-1% of bodyweight per week. If loss is faster than about 1 kg/week for two weeks, or gym performance is falling, suggest adding calories. If the weekly average is flat for 7-10 days, suggest a small trim (100-150 kcal) or more walking, not a big cut. " +
+    "Never tell the user to compensate for one high-calorie day. Never recommend intake below about 1800 kcal for this user, and say so if their logged intake is far below that. Say plainly when the data is too short to conclude. You are not a doctor; suggest one for medical concerns.\n" +
+    "Current dashboard data (JSON):\n" + JSON.stringify(snapshot());
+}
+let busy = false;
+const API = "https://api.anthropic.com/v1/messages";
+async function callClaude(sys, messages, max) {
+  const key = localStorage.getItem(AKEY);
+  if (!key) { const e = new Error("No API key"); e.nokey = true; throw e; }
+  const res = await fetch(API, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    body: JSON.stringify({ model: S.settings.model || DEFAULTS.settings.model, max_tokens: max || 1000, system: sys, messages })
+  });
+  let data = {};
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) throw new Error((data.error && data.error.message) || "Request failed (" + res.status + ")");
+  return (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+}
+
+const MAX_PDF = 8 * 1024 * 1024, MAX_FILES = 4;
+let attached = [];
+const readURL = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(new Error("Could not read " + f.name)); r.readAsDataURL(f); });
+const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("Could not open that image. Use a JPG, PNG or WebP file.")); i.src = src; });
+async function imageBlock(f) {
+  const img = await loadImg(await readURL(f));
+  const sc = Math.min(1, 1600 / Math.max(img.width, img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  const url = c.toDataURL("image/jpeg", 0.85);
+  return { preview: url, block: { type: "image", source: { type: "base64", media_type: "image/jpeg", data: url.split(",")[1] } } };
+}
+async function fileBlock(f) {
+  const n = f.name.toLowerCase();
+  if (f.type.startsWith("image/")) return (await imageBlock(f)).block;
+  if (f.type === "application/pdf" || n.endsWith(".pdf")) {
+    if (f.size > MAX_PDF) throw new Error(f.name + " is over 8 MB");
+    return { type: "document", source: { type: "base64", media_type: "application/pdf", data: (await readURL(f)).split(",")[1] } };
+  }
+  if (/\.(csv|txt|json|md)$/.test(n) || f.type.startsWith("text/") || f.type === "application/json") {
+    let t = await f.text(); if (t.length > 60000) t = t.slice(0, 60000) + "\n[truncated]";
+    return { type: "text", text: "File " + f.name + ":\n" + t };
+  }
+  throw new Error(f.name + " is not supported. Use an image, PDF, CSV, TXT, JSON or MD file.");
+}
+function renderAttached() {
+  $("pending").innerHTML = attached.map((a, i) => '<span class="pend">' + esc(a.name) + '<button type="button" data-rm="' + i + '" aria-label="Remove ' + esc(a.name) + '">&times;</button></span>').join("");
+}
+$("attachBtn").addEventListener("click", () => $("attachFile").click());
+$("attachFile").addEventListener("change", async e => {
+  for (const f of [...e.target.files]) {
+    if (attached.length >= MAX_FILES) { toast("Up to " + MAX_FILES + " files per message"); break; }
+    try { attached.push({ name: f.name, block: await fileBlock(f) }); } catch (err) { toast(err.message); }
+  }
+  e.target.value = ""; renderAttached();
+});
+$("pending").addEventListener("click", e => { const i = e.target.dataset && e.target.dataset.rm; if (i == null) return; attached.splice(+i, 1); renderAttached(); });
+
+function apiMessages() {
+  const w = hist.slice(-12), lastUser = w.map(m => m.role).lastIndexOf("user");
+  const out = w.map((m, i) => {
+    if (m.role === "user" && m.blocks && i === lastUser) return { role: "user", content: [...m.blocks, { type: "text", text: m.content }] };
+    return { role: m.role, content: m.content + (m.att && m.att.length ? "\n[Earlier attachment(s): " + m.att.join(", ") + "]" : "") };
+  });
+  while (out.length && out[0].role !== "user") out.shift();
+  return out;
+}
+async function ask(text) {
+  if (busy) return;
+  const files = attached.splice(0); renderAttached();
+  hist.push({ role: "user", content: text, att: files.map(a => a.name), blocks: files.length ? files.map(a => a.block) : null });
+  if (!localStorage.getItem(AKEY)) {
+    attached = files; renderAttached();
+    hist.push({ role: "assistant", content: "I need an Anthropic API key first. Open **Claude connection** below, paste your key, and send again." });
+    $("apiBox").open = true; persistChat(); renderChat(); return;
+  }
+  busy = true; $("chatSend").disabled = true; renderChat(true);
+  try {
+    hist.push({ role: "assistant", content: await callClaude(system(), apiMessages(), 1000) || "(No reply)" });
+  } catch (err) {
+    hist.push({ role: "assistant", content: "Couldn't reach Claude: " + err.message + ". Check your API key and model name under **Claude connection**." });
+  }
+  busy = false; $("chatSend").disabled = false; persistChat(); renderChat();
+}
+function persistChat() { try { localStorage.setItem(CKEY, JSON.stringify(hist.slice(-20).map(m => ({ role: m.role, content: m.content, att: m.att })))); } catch (e) {} }
+
+let scanImg = null, scanRows = [];
+const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || "") && !isNaN(Date.parse(s));
+const scanSystem = () => "You read body-weight readings from images: a bathroom scale display, a fitness or health app screenshot, or a typed or handwritten list. Today is " + today() +
+  ". Reply with ONLY a JSON object, no other text: {\"readings\":[{\"date\":\"YYYY-MM-DD or null\",\"kg\":number}],\"note\":\"one short sentence about anything unclear\"}. " +
+  "Convert pounds to kilograms and round to 1 decimal. If a reading has no visible date use null. If only weekday names or day numbers are visible, map them to the most recent matching dates on or before today. " +
+  "Never guess digits you cannot see. If you cannot read any weight, return an empty readings array and explain in note.";
+function parseScan(t) {
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if (a < 0 || b < a) throw new Error("Claude did not return readable data. Try a clearer photo.");
+  const j = JSON.parse(t.slice(a, b + 1));
+  const rows = (Array.isArray(j.readings) ? j.readings : []).map(x => ({ date: isDate(x.date) ? x.date : null, kg: Math.round(parseFloat(x.kg) * 10) / 10 })).filter(x => x.kg >= 30 && x.kg <= 300);
+  return { rows, note: j.note || "" };
+}
+function showScan(r) {
+  const fallback = $("scanDate").value || today();
+  scanRows = r.rows.map(x => ({ chk: true, date: x.date || fallback, kg: x.kg, guess: !x.date }));
+  if (!scanRows.length) { $("scanOut").innerHTML = '<div class="msg warn">No weights found. ' + esc(r.note) + " Try a closer, clearer photo.</div>"; return; }
+  let h = (r.note ? '<div class="msg info">' + esc(r.note) + "</div>" : "") + '<p class="small" style="margin:0 0 6px">Check these before adding. Dates marked in gold were not visible, so the date above was used.</p><div class="scroll"><table><tr><th></th><th>Date</th><th>Weight (kg)</th></tr>';
+  scanRows.forEach((x, i) => {
+    h += '<tr class="' + (x.guess ? "flag" : "") + '"><td><input type="checkbox" data-sc="chk" data-i="' + i + '" checked aria-label="Include row ' + (i + 1) + '"></td><td><input type="date" data-sc="date" data-i="' + i + '" value="' + x.date + '"></td><td><input type="number" step="0.1" data-sc="kg" data-i="' + i + '" value="' + x.kg + '"></td></tr>';
+  });
+  $("scanOut").innerHTML = h + '</table></div><div class="row" style="margin-top:10px"><button class="btn pri" type="button" id="scanAdd">Add to log</button><button class="btn" type="button" id="scanCancel">Cancel</button></div>';
+}
+function resetScan() { scanImg = null; scanRows = []; $("scanOut").innerHTML = ""; $("scanThumb").hidden = true; $("scanFile").value = ""; }
+$("scanDate").value = today();
+$("scanFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; scanImg = null; scanRows = []; $("scanOut").innerHTML = ""; $("scanThumb").hidden = true;
+  if (!f) return;
+  try { const r = await imageBlock(f); scanImg = r.block; $("scanThumb").src = r.preview; $("scanThumb").hidden = false; } catch (err) { toast(err.message); }
+});
+$("scanBtn").addEventListener("click", async () => {
+  if (!scanImg) { toast("Choose a photo first"); return; }
+  if (!localStorage.getItem(AKEY)) { $("scanOut").innerHTML = '<div class="msg warn">Reading photos needs your Anthropic API key. <button class="btn sm" type="button" id="goKey">Open Claude connection</button></div>'; return; }
+  $("scanBtn").disabled = true; $("scanOut").innerHTML = '<div class="msg info">Reading the photo...</div>';
+  try { showScan(parseScan(await callClaude(scanSystem(), [{ role: "user", content: [scanImg, { type: "text", text: "Extract the weight readings from this image." }] }], 600))); }
+  catch (err) { $("scanOut").innerHTML = '<div class="msg bad">' + esc(err.message) + "</div>"; }
+  $("scanBtn").disabled = false;
+});
+$("scanOut").addEventListener("change", e => {
+  const d = e.target.dataset; if (!d || !d.sc) return;
+  const r = scanRows[+d.i]; if (!r) return;
+  if (d.sc === "chk") r.chk = e.target.checked;
+  else if (d.sc === "date") { r.date = e.target.value; r.guess = false; e.target.closest("tr").classList.remove("flag"); }
+  else r.kg = parseFloat(e.target.value);
+});
+$("scanOut").addEventListener("click", e => {
+  if (e.target.id === "goKey") { showTab("coach"); $("apiBox").open = true; $("apiKey").focus(); return; }
+  if (e.target.id === "scanCancel") { resetScan(); return; }
+  if (e.target.id !== "scanAdd") return;
+  const good = scanRows.filter(r => r.chk && isDate(r.date) && r.kg >= 30 && r.kg <= 300);
+  if (!good.length) { toast("Nothing valid to add"); return; }
+  good.forEach(r => {
+    const entry = { date: r.date, kg: Math.round(r.kg * 10) / 10 };
+    const i = S.log.findIndex(x => x.date === r.date);
+    if (i >= 0) { const o = S.log[i]; if (o.kcal != null) entry.kcal = o.kcal; if (o.note) entry.note = o.note; S.log[i] = entry; } else S.log.push(entry);
+  });
+  save(); render(); resetScan(); toast("Added " + good.length + " weigh-in" + (good.length > 1 ? "s" : "") + ". Dashboard updated");
+});
+
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!$("tab-overview").hidden) drawChart(); });
+fillSettings(); render(); renderChat();
+</script>
+</body>
+</html>
